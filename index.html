@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Sales Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <img src="assets/saxon-logo.png" alt="Saxon Logo" class="logo">
+                <div class="header-text">
+                    <h1>Pre-Sales Tracker</h1>
+                    <p class="subtitle">Simplify Opportunities, Amplify Success</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+        <div class="container">
+            <button class="tab-btn active" data-tab="opportunities">Opportunities</button>
+            <button class="tab-btn" data-tab="tasks">Pre-Sales Tasks</button>
+            <button class="tab-btn" data-tab="calendar">Calendar</button>
+            <button class="tab-btn" data-tab="kanban">Kanban Board</button>
+            <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Opportunities Tab -->
+        <section id="opportunities-tab" class="tab-content active">
+            <div class="section-header">
+                <h2>Opportunities</h2>
+                <div class="controls">
+                    <input type="text" id="opp-search" placeholder="Search opportunities..." class="search-input">
+                    <select id="opp-filter-stage" class="filter-select">
+                        <option value="">All Stages</option>
+                        <option value="Lead">Lead</option>
+                        <option value="Qualified">Qualified</option>
+                        <option value="Proposal">Proposal</option>
+                        <option value="Negotiation">Negotiation</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                    <select id="opp-filter-status" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="Open">Open</option>
+                        <option value="Won">Won</option>
+                        <option value="Lost">Lost</option>
+                        <option value="On Hold">On Hold</option>
+                    </select>
+                    <button id="add-opportunity-btn" class="btn btn-primary">+ Add Opportunity</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="opportunities-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Client</th>
+                            <th>Industry</th>
+                            <th>Stage</th>
+                            <th>Status</th>
+                            <th>Deal Value</th>
+                            <th>Probability</th>
+                            <th>Expected Revenue</th>
+                            <th>BANT Score</th>
+                            <th>BANT Summary</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="opportunities-tbody">
+                        <!-- Rows will be dynamically inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Pre-Sales Tasks Tab -->
+        <section id="tasks-tab" class="tab-content">
+            <div class="section-header">
+                <h2>Pre-Sales Tasks</h2>
+                <div class="controls">
+                    <input type="text" id="task-search" placeholder="Search tasks..." class="search-input">
+                    <select id="task-filter-status" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="Not Started">Not Started</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Delayed">Delayed</option>
+                    </select>
+                    <select id="task-filter-opportunity" class="filter-select">
+                        <option value="">All Opportunities</option>
+                    </select>
+                    <button id="add-task-btn" class="btn btn-primary">+ Add Task</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="tasks-table">
+                    <thead>
+                        <tr>
+                            <th>Task ID</th>
+                            <th>Opportunity</th>
+                            <th>Task Name</th>
+                            <th>Assigned To</th>
+                            <th>Role</th>
+                            <th>Task Type</th>
+                            <th>Start Date</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-tbody">
+                        <!-- Rows will be dynamically inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Dashboard Tab -->
+        <section id="dashboard-tab" class="tab-content">
+            <div class="section-header">
+                <h2>Dashboard</h2>
+            </div>
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3>Opportunities Overview</h3>
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Total</span>
+                            <span class="stat-value" id="stat-total-opps">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Open</span>
+                            <span class="stat-value" id="stat-open-opps">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Won</span>
+                            <span class="stat-value stat-success" id="stat-won-opps">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Lost</span>
+                            <span class="stat-value stat-danger" id="stat-lost-opps">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>Revenue Metrics</h3>
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Pipeline Value</span>
+                            <span class="stat-value" id="stat-pipeline-value">$0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Expected Revenue</span>
+                            <span class="stat-value stat-success" id="stat-expected-revenue">$0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Average Deal Size</span>
+                            <span class="stat-value" id="stat-avg-deal">$0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Average Probability</span>
+                            <span class="stat-value" id="stat-avg-probability">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>BANT Analysis</h3>
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Average BANT Score</span>
+                            <span class="stat-value" id="stat-avg-bant">0%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Hot Leads</span>
+                            <span class="stat-value stat-hot" id="stat-hot-leads">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Warm Leads</span>
+                            <span class="stat-value stat-warm" id="stat-warm-leads">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Cold Leads</span>
+                            <span class="stat-value stat-cold" id="stat-cold-leads">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>Tasks Overview</h3>
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Tasks</span>
+                            <span class="stat-value" id="stat-total-tasks">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Completed</span>
+                            <span class="stat-value stat-success" id="stat-completed-tasks">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">In Progress</span>
+                            <span class="stat-value stat-warning" id="stat-progress-tasks">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Delayed</span>
+                            <span class="stat-value stat-danger" id="stat-delayed-tasks">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Calendar Tab -->
+        <section id="calendar-tab" class="tab-content">
+            <div class="section-header">
+                <h2>Task Calendar</h2>
+                <div class="controls">
+                    <button id="calendar-prev-month" class="btn btn-secondary">← Previous</button>
+                    <span id="calendar-month-year" class="calendar-title"></span>
+                    <button id="calendar-next-month" class="btn btn-secondary">Next →</button>
+                    <button id="calendar-today" class="btn btn-primary">Today</button>
+                </div>
+            </div>
+            <div id="calendar-container" class="calendar-container">
+                <div class="calendar-grid" id="calendar-grid">
+                    <!-- Calendar will be dynamically generated here -->
+                </div>
+            </div>
+            <div id="calendar-tasks-list" class="calendar-tasks-list">
+                <h3>Tasks for <span id="selected-date"></span></h3>
+                <div id="selected-date-tasks">
+                    <!-- Tasks for selected date will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Kanban Board Tab -->
+        <section id="kanban-tab" class="tab-content">
+            <div class="section-header">
+                <h2>Kanban Board</h2>
+            </div>
+            <div class="kanban-board" id="kanban-board">
+                <div class="kanban-column" data-stage="Lead">
+                    <div class="kanban-column-header">
+                        <div>
+                            <h3>Lead</h3>
+                            <div class="kanban-value" id="value-lead">$0</div>
+                        </div>
+                        <span class="kanban-count" id="count-lead">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-lead">
+                        <!-- Cards will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div class="kanban-column" data-stage="Qualified">
+                    <div class="kanban-column-header">
+                        <div>
+                            <h3>Qualified</h3>
+                            <div class="kanban-value" id="value-qualified">$0</div>
+                        </div>
+                        <span class="kanban-count" id="count-qualified">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-qualified">
+                        <!-- Cards will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div class="kanban-column" data-stage="Proposal">
+                    <div class="kanban-column-header">
+                        <div>
+                            <h3>Proposal</h3>
+                            <div class="kanban-value" id="value-proposal">$0</div>
+                        </div>
+                        <span class="kanban-count" id="count-proposal">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-proposal">
+                        <!-- Cards will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div class="kanban-column" data-stage="Negotiation">
+                    <div class="kanban-column-header">
+                        <div>
+                            <h3>Negotiation</h3>
+                            <div class="kanban-value" id="value-negotiation">$0</div>
+                        </div>
+                        <span class="kanban-count" id="count-negotiation">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-negotiation">
+                        <!-- Cards will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div class="kanban-column" data-stage="Closed">
+                    <div class="kanban-column-header">
+                        <div>
+                            <h3>Closed</h3>
+                            <div class="kanban-value" id="value-closed">$0</div>
+                        </div>
+                        <span class="kanban-count" id="count-closed">0</span>
+                    </div>
+                    <div class="kanban-cards" id="kanban-closed">
+                        <!-- Cards will be dynamically inserted here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Opportunity Modal -->
+    <div id="opportunity-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="opportunity-modal-title">Add Opportunity</h2>
+                <button class="close-btn" id="close-opportunity-modal">&times;</button>
+            </div>
+            <form id="opportunity-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="opp-name">Opportunity Name *</label>
+                        <input type="text" id="opp-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-client">Client / Account Name *</label>
+                        <input type="text" id="opp-client" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-industry">Industry</label>
+                        <select id="opp-industry">
+                            <option value="Healthcare">Healthcare</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Retail">Retail</option>
+                            <option value="Manufacturing">Manufacturing</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Education">Education</option>
+                            <option value="Government">Government</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-sales-owner">Sales Owner</label>
+                        <input type="text" id="opp-sales-owner">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-presales-owner">Pre-Sales Owner</label>
+                        <input type="text" id="opp-presales-owner">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-ba">Business Analyst</label>
+                        <input type="text" id="opp-ba">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-tech-type">Tech Type</label>
+                        <select id="opp-tech-type">
+                            <option value="AI">AI</option>
+                            <option value="Azure">Azure</option>
+                            <option value="Power Platform">Power Platform</option>
+                            <option value="Dynamics 365">Dynamics 365</option>
+                            <option value="Cybersecurity">Cybersecurity</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-source">Source</label>
+                        <select id="opp-source">
+                            <option value="RFP">RFP</option>
+                            <option value="Referral">Referral</option>
+                            <option value="Partner">Partner</option>
+                            <option value="Website">Website</option>
+                            <option value="Cold Outreach">Cold Outreach</option>
+                            <option value="Event">Event</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-date-identified">Date Identified</label>
+                        <input type="date" id="opp-date-identified">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-expected-close">Expected Close Date</label>
+                        <input type="date" id="opp-expected-close">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-stage">Stage</label>
+                        <select id="opp-stage">
+                            <option value="Lead">Lead</option>
+                            <option value="Qualified">Qualified</option>
+                            <option value="Proposal">Proposal</option>
+                            <option value="Negotiation">Negotiation</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-status">Status</label>
+                        <select id="opp-status">
+                            <option value="Open">Open</option>
+                            <option value="Won">Won</option>
+                            <option value="Lost">Lost</option>
+                            <option value="On Hold">On Hold</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-deal-value">Estimated Deal Value ($)</label>
+                        <input type="number" id="opp-deal-value" min="0" step="1000" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-probability">Probability (%)</label>
+                        <input type="number" id="opp-probability" min="0" max="100" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Expected Revenue</label>
+                        <input type="text" id="opp-expected-revenue" readonly class="readonly-field">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-competition">Competition</label>
+                        <input type="text" id="opp-competition">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-contact-name">Key Contact Name</label>
+                        <input type="text" id="opp-contact-name">
+                    </div>
+                    <div class="form-group">
+                        <label for="opp-contact-email">Contact Email</label>
+                        <input type="email" id="opp-contact-email">
+                    </div>
+                </div>
+
+                <div class="bant-section">
+                    <h3>BANT Assessment (1-5 scale)</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="opp-bant-budget">Budget (1-5)</label>
+                            <input type="number" id="opp-bant-budget" min="1" max="5" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="opp-bant-authority">Authority (1-5)</label>
+                            <input type="number" id="opp-bant-authority" min="1" max="5" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="opp-bant-need">Need (1-5)</label>
+                            <input type="number" id="opp-bant-need" min="1" max="5" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="opp-bant-timeline">Timeline (1-5)</label>
+                            <input type="number" id="opp-bant-timeline" min="1" max="5" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label>BANT Total</label>
+                            <input type="text" id="opp-bant-total" readonly class="readonly-field">
+                        </div>
+                        <div class="form-group">
+                            <label>BANT %</label>
+                            <input type="text" id="opp-bant-percent" readonly class="readonly-field">
+                        </div>
+                        <div class="form-group">
+                            <label>BANT Summary</label>
+                            <input type="text" id="opp-bant-summary" readonly class="readonly-field">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-opportunity-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Opportunity</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="task-modal-title">Add Task</h2>
+                <button class="close-btn" id="close-task-modal">&times;</button>
+            </div>
+            <form id="task-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="task-opportunity">Opportunity *</label>
+                        <select id="task-opportunity" required>
+                            <option value="">Select Opportunity</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-name">Task Name *</label>
+                        <input type="text" id="task-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-assigned-to">Assigned To</label>
+                        <input type="text" id="task-assigned-to">
+                    </div>
+                    <div class="form-group">
+                        <label for="task-role">Role</label>
+                        <select id="task-role">
+                            <option value="Sales">Sales</option>
+                            <option value="Pre-Sales">Pre-Sales</option>
+                            <option value="BA">BA</option>
+                            <option value="Architect">Architect</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-type">Task Type</label>
+                        <select id="task-type">
+                            <option value="Document">Document</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="Demo">Demo</option>
+                            <option value="Review">Review</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-start-date">Start Date</label>
+                        <input type="date" id="task-start-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="task-due-date">Due Date</label>
+                        <input type="date" id="task-due-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="task-status">Status</label>
+                        <select id="task-status">
+                            <option value="Not Started">Not Started</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Delayed">Delayed</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="task-remarks">Remarks</label>
+                        <textarea id="task-remarks" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-task-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
