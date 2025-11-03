@@ -57,21 +57,32 @@
                     <button id="add-opportunity-btn" class="btn btn-primary">+ Add Opportunity</button>
                 </div>
             </div>
+
+            <!-- Bulk Actions Bar -->
+            <div id="opp-bulk-actions" class="bulk-actions-bar">
+                <span class="selected-count">0 selected</span>
+                <button onclick="bulkDeleteOpportunities()" class="btn btn-danger">Delete Selected</button>
+                <button onclick="bulkUpdateOpportunityStatus('Won')" class="btn btn-secondary">Mark as Won</button>
+                <button onclick="bulkUpdateOpportunityStatus('Lost')" class="btn btn-secondary">Mark as Lost</button>
+                <button onclick="bulkUpdateOpportunityStatus('On Hold')" class="btn btn-secondary">Mark as On Hold</button>
+            </div>
+
             <div class="table-container">
                 <table id="opportunities-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Client</th>
-                            <th>Industry</th>
-                            <th>Stage</th>
-                            <th>Status</th>
-                            <th>Deal Value</th>
-                            <th>Probability</th>
-                            <th>Expected Revenue</th>
-                            <th>BANT Score</th>
-                            <th>BANT Summary</th>
+                            <th><input type="checkbox" onclick="toggleSelectAllOpportunities()" id="select-all-opps"></th>
+                            <th onclick="sortOpportunities('id')" class="sortable">ID</th>
+                            <th onclick="sortOpportunities('name')" class="sortable">Name</th>
+                            <th onclick="sortOpportunities('client')" class="sortable">Client</th>
+                            <th onclick="sortOpportunities('industry')" class="sortable">Industry</th>
+                            <th onclick="sortOpportunities('stage')" class="sortable">Stage</th>
+                            <th onclick="sortOpportunities('status')" class="sortable">Status</th>
+                            <th onclick="sortOpportunities('dealValue')" class="sortable">Deal Value</th>
+                            <th onclick="sortOpportunities('probability')" class="sortable">Probability</th>
+                            <th onclick="sortOpportunities('expectedRevenue')" class="sortable">Expected Revenue</th>
+                            <th onclick="sortOpportunities('bantPercent')" class="sortable">BANT Score</th>
+                            <th onclick="sortOpportunities('bantSummary')" class="sortable">BANT Summary</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -101,19 +112,30 @@
                     <button id="add-task-btn" class="btn btn-primary">+ Add Task</button>
                 </div>
             </div>
+
+            <!-- Bulk Actions Bar -->
+            <div id="task-bulk-actions" class="bulk-actions-bar">
+                <span class="selected-count">0 selected</span>
+                <button onclick="bulkDeleteTasks()" class="btn btn-danger">Delete Selected</button>
+                <button onclick="bulkUpdateTaskStatus('Completed')" class="btn btn-secondary">Mark as Completed</button>
+                <button onclick="bulkUpdateTaskStatus('In Progress')" class="btn btn-secondary">Mark as In Progress</button>
+                <button onclick="bulkUpdateTaskStatus('Delayed')" class="btn btn-secondary">Mark as Delayed</button>
+            </div>
+
             <div class="table-container">
                 <table id="tasks-table">
                     <thead>
                         <tr>
-                            <th>Task ID</th>
+                            <th><input type="checkbox" onclick="toggleSelectAllTasks()" id="select-all-tasks"></th>
+                            <th onclick="sortTasks('id')" class="sortable">Task ID</th>
                             <th>Opportunity</th>
-                            <th>Task Name</th>
-                            <th>Assigned To</th>
-                            <th>Role</th>
-                            <th>Task Type</th>
-                            <th>Start Date</th>
-                            <th>Due Date</th>
-                            <th>Status</th>
+                            <th onclick="sortTasks('taskName')" class="sortable">Task Name</th>
+                            <th onclick="sortTasks('assignedTo')" class="sortable">Assigned To</th>
+                            <th onclick="sortTasks('role')" class="sortable">Role</th>
+                            <th onclick="sortTasks('taskType')" class="sortable">Task Type</th>
+                            <th onclick="sortTasks('startDate')" class="sortable">Start Date</th>
+                            <th onclick="sortTasks('dueDate')" class="sortable">Due Date</th>
+                            <th onclick="sortTasks('status')" class="sortable">Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -128,6 +150,11 @@
         <section id="dashboard-tab" class="tab-content">
             <div class="section-header">
                 <h2>Dashboard</h2>
+                <div class="controls">
+                    <button onclick="exportToJSON()" class="btn btn-secondary">Export JSON</button>
+                    <button onclick="exportToCSV()" class="btn btn-secondary">Export CSV</button>
+                    <button onclick="importFromJSON()" class="btn btn-primary">Import JSON</button>
+                </div>
             </div>
             <div class="dashboard-grid">
                 <div class="dashboard-card">
