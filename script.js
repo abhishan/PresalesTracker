@@ -2,6 +2,8 @@
 // Constants
 // ===========================
 
+const DATA_VERSION = 2; // Current data schema version
+
 const BANT_THRESHOLDS = {
     HOT: 80,
     WARM: 55
@@ -20,6 +22,14 @@ let currentEditingTask = null;
 let currentCalendarDate = new Date();
 let selectedCalendarDate = null;
 let draggedCard = null;
+let undoStack = [];
+const MAX_UNDO_STACK = 10;
+let opportunitySortColumn = null;
+let opportunitySortDirection = 'asc';
+let taskSortColumn = null;
+let taskSortDirection = 'asc';
+let selectedOpportunities = new Set();
+let selectedTasks = new Set();
 
 // ===========================
 // Initialization
@@ -34,6 +44,9 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTasks();
     updateDashboard();
     updateTaskOpportunityFilters();
+
+    // Check storage quota on load
+    checkStorageQuota();
 });
 
 // ===========================
@@ -44,9 +57,17 @@ function loadDataFromStorage() {
     try {
         const storedOpportunities = localStorage.getItem('opportunities');
         const storedTasks = localStorage.getItem('tasks');
-        
+        const storedVersion = localStorage.getItem('dataVersion');
+
         opportunities = storedOpportunities ? JSON.parse(storedOpportunities) : [];
         tasks = storedTasks ? JSON.parse(storedTasks) : [];
+
+        // Check if migration is needed
+        const currentVersion = storedVersion ? parseInt(storedVersion) : 1;
+        if (currentVersion < DATA_VERSION) {
+            migrateData(currentVersion, DATA_VERSION);
+            localStorage.setItem('dataVersion', DATA_VERSION.toString());
+        }
     } catch (error) {
         console.error('Error loading data from storage:', error);
         opportunities = [];
@@ -57,6 +78,7 @@ function loadDataFromStorage() {
 function saveOpportunitiesToStorage() {
     try {
         localStorage.setItem('opportunities', JSON.stringify(opportunities));
+        checkStorageQuota();
     } catch (error) {
         console.error('Error saving opportunities:', error);
         alert('Unable to save data. Storage may be full.');
@@ -66,10 +88,43 @@ function saveOpportunitiesToStorage() {
 function saveTasksToStorage() {
     try {
         localStorage.setItem('tasks', JSON.stringify(tasks));
+        checkStorageQuota();
     } catch (error) {
         console.error('Error saving tasks:', error);
         alert('Unable to save data. Storage may be full.');
     }
+}
+
+// ===========================
+// Data Migration Functions
+// ===========================
+
+const migrations = {
+    1: function(data) {
+        // Migration from v1 to v2: Ensure all opportunities have proper ID format
+        console.log('Migrating from version 1 to 2...');
+        return data;
+    }
+};
+
+function migrateData(fromVersion, toVersion) {
+    console.log(`Migrating data from version ${fromVersion} to ${toVersion}`);
+
+    for (let v = fromVersion; v < toVersion; v++) {
+        if (migrations[v]) {
+            const result = migrations[v]({ opportunities, tasks });
+            if (result) {
+                opportunities = result.opportunities || opportunities;
+                tasks = result.tasks || tasks;
+            }
+        }
+    }
+
+    // Save migrated data
+    saveOpportunitiesToStorage();
+    saveTasksToStorage();
+
+    console.log('Data migration completed successfully');
 }
 
 // ===========================
@@ -78,13 +133,15 @@ function saveTasksToStorage() {
 
 function generateOpportunityID() {
     const year = new Date().getFullYear();
-    const timestamp = String(Date.now()).slice(-3);
-    return `OP-${year}-${timestamp}`;
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const timestamp = Date.now();
+    return `OP-${year}-${random}-${timestamp}`;
 }
 
 function generateTaskID() {
-    const timestamp = String(Date.now()).slice(-4);
-    return `TSK-${timestamp}`;
+    const random = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const timestamp = Date.now();
+    return `TSK-${random}-${timestamp}`;
 }
 
 // ===========================
@@ -106,10 +163,714 @@ function debounce(func, delay) {
 }
 
 function formatCurrency(amount) {
-    return amount.toLocaleString('en-US', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
+    return amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     });
+}
+
+function checkStorageQuota() {
+    try {
+        let totalSize = 0;
+        for (let key in localStorage) {
+            if (localStorage.hasOwnProperty(key)) {
+                totalSize += localStorage[key].length + key.length;
+            }
+        }
+
+        // Convert to KB
+        const sizeInKB = totalSize / 1024;
+        const sizeInMB = sizeInKB / 1024;
+
+        // Typical localStorage limit is 5-10MB, warn at 80%
+        const estimatedLimit = 5 * 1024; // 5MB in KB
+        const usagePercent = (sizeInKB / estimatedLimit) * 100;
+
+        if (usagePercent > 80) {
+            showWarning(`Storage is ${usagePercent.toFixed(1)}% full (${sizeInMB.toFixed(2)}MB). Consider exporting your data.`);
+        }
+
+        return {
+            sizeInKB: sizeInKB.toFixed(2),
+            sizeInMB: sizeInMB.toFixed(2),
+            usagePercent: usagePercent.toFixed(1)
+        };
+    } catch (error) {
+        console.error('Error checking storage quota:', error);
+        return null;
+    }
+}
+
+function showWarning(message) {
+    // Create warning toast
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-warning';
+    toast.innerHTML = `
+        <span>${escapeHtml(message)}</span>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+    `;
+    document.body.appendChild(toast);
+
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 10000);
+}
+
+// ===========================
+// Data Export/Import Functions
+// ===========================
+
+function exportToJSON() {
+    const data = {
+        version: DATA_VERSION,
+        exportDate: new Date().toISOString(),
+        opportunities: opportunities,
+        tasks: tasks
+    };
+
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `presales-tracker-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showSuccess('Data exported successfully!');
+}
+
+function exportToCSV() {
+    // Export opportunities to CSV
+    const oppHeaders = ['ID', 'Name', 'Client', 'Industry', 'Sales Owner', 'Pre-Sales Owner', 'BA',
+                        'Tech Type', 'Source', 'Date Identified', 'Expected Close', 'Stage', 'Status',
+                        'Deal Value', 'Probability', 'Expected Revenue', 'BANT Total', 'BANT %', 'BANT Summary'];
+
+    let oppCSV = oppHeaders.join(',') + '\n';
+
+    opportunities.forEach(opp => {
+        const row = [
+            opp.id,
+            `"${opp.name}"`,
+            `"${opp.client}"`,
+            opp.industry,
+            `"${opp.salesOwner || ''}"`,
+            `"${opp.preSalesOwner || ''}"`,
+            `"${opp.ba || ''}"`,
+            opp.techType,
+            opp.source,
+            opp.dateIdentified,
+            opp.expectedClose,
+            opp.stage,
+            opp.status,
+            opp.dealValue,
+            opp.probability,
+            opp.expectedRevenue.toFixed(2),
+            opp.bantTotal,
+            opp.bantPercent.toFixed(2),
+            opp.bantSummary
+        ];
+        oppCSV += row.join(',') + '\n';
+    });
+
+    // Export tasks to CSV
+    const taskHeaders = ['ID', 'Opportunity ID', 'Task Name', 'Assigned To', 'Role', 'Task Type',
+                         'Start Date', 'Due Date', 'Status', 'Remarks'];
+
+    let taskCSV = taskHeaders.join(',') + '\n';
+
+    tasks.forEach(task => {
+        const row = [
+            task.id,
+            task.opportunityId,
+            `"${task.taskName}"`,
+            `"${task.assignedTo || ''}"`,
+            task.role,
+            task.taskType,
+            task.startDate || '',
+            task.dueDate || '',
+            task.status,
+            `"${(task.remarks || '').replace(/"/g, '""')}"`
+        ];
+        taskCSV += row.join(',') + '\n';
+    });
+
+    // Download opportunities CSV
+    downloadCSV(oppCSV, `opportunities-${new Date().toISOString().split('T')[0]}.csv`);
+
+    // Download tasks CSV
+    downloadCSV(taskCSV, `tasks-${new Date().toISOString().split('T')[0]}.csv`);
+
+    showSuccess('Data exported to CSV successfully!');
+}
+
+function downloadCSV(csvContent, filename) {
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function importFromJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+
+                // Validate data structure
+                if (!data.opportunities || !data.tasks) {
+                    throw new Error('Invalid data format');
+                }
+
+                // Check version and migrate if needed
+                const importVersion = data.version || 1;
+                if (importVersion < DATA_VERSION) {
+                    showWarning('Importing older data format. Data will be migrated.');
+                }
+
+                // Confirm before overwriting
+                if (!confirm('This will replace all existing data. Are you sure you want to continue?')) {
+                    return;
+                }
+
+                opportunities = data.opportunities;
+                tasks = data.tasks;
+
+                // Migrate if needed
+                if (importVersion < DATA_VERSION) {
+                    migrateData(importVersion, DATA_VERSION);
+                } else {
+                    saveOpportunitiesToStorage();
+                    saveTasksToStorage();
+                }
+
+                // Refresh UI
+                renderOpportunities();
+                renderTasks();
+                updateTaskOpportunityFilters();
+                updateDashboard();
+
+                showSuccess('Data imported successfully!');
+            } catch (error) {
+                console.error('Import error:', error);
+                alert('Failed to import data. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    input.click();
+}
+
+function showSuccess(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-success';
+    toast.innerHTML = `
+        <span>${escapeHtml(message)}</span>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+    `;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
+function showLoading(message = 'Loading...') {
+    // Remove existing loading overlay if any
+    const existing = document.getElementById('loading-overlay');
+    if (existing) {
+        existing.remove();
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'loading-overlay';
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = `
+        <div style="text-align: center; color: white;">
+            <div class="spinner"></div>
+            <p style="margin-top: 1rem;">${escapeHtml(message)}</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+// ===========================
+// Undo/Redo Functions
+// ===========================
+
+function addToUndoStack(action) {
+    undoStack.push(action);
+
+    // Limit stack size
+    if (undoStack.length > MAX_UNDO_STACK) {
+        undoStack.shift();
+    }
+}
+
+function undo() {
+    if (undoStack.length === 0) {
+        showWarning('Nothing to undo');
+        return;
+    }
+
+    const action = undoStack.pop();
+
+    switch (action.type) {
+        case 'delete_opportunity':
+            // Restore opportunity and its tasks
+            opportunities.push(action.data.opportunity);
+            if (action.data.tasks && action.data.tasks.length > 0) {
+                tasks.push(...action.data.tasks);
+            }
+            saveOpportunitiesToStorage();
+            saveTasksToStorage();
+            renderOpportunities();
+            renderTasks();
+            updateTaskOpportunityFilters();
+            updateDashboard();
+            showSuccess('Opportunity restored');
+            break;
+
+        case 'delete_task':
+            // Restore task
+            tasks.push(action.data.task);
+            saveTasksToStorage();
+            renderTasks();
+            updateDashboard();
+            showSuccess('Task restored');
+            break;
+
+        case 'bulk_delete_opportunities':
+            // Restore multiple opportunities
+            opportunities.push(...action.data.opportunities);
+            if (action.data.tasks && action.data.tasks.length > 0) {
+                tasks.push(...action.data.tasks);
+            }
+            saveOpportunitiesToStorage();
+            saveTasksToStorage();
+            renderOpportunities();
+            renderTasks();
+            updateTaskOpportunityFilters();
+            updateDashboard();
+            showSuccess(`${action.data.opportunities.length} opportunities restored`);
+            break;
+
+        case 'bulk_delete_tasks':
+            // Restore multiple tasks
+            tasks.push(...action.data.tasks);
+            saveTasksToStorage();
+            renderTasks();
+            updateDashboard();
+            showSuccess(`${action.data.tasks.length} tasks restored`);
+            break;
+    }
+}
+
+function showUndoToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-success';
+    toast.innerHTML = `
+        <span>${escapeHtml(message)}</span>
+        <button class="btn-undo" onclick="undo(); this.parentElement.remove();">Undo</button>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+    `;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 8000);
+}
+
+// ===========================
+// Sorting Functions
+// ===========================
+
+function sortOpportunities(column) {
+    // Toggle direction if clicking same column
+    if (opportunitySortColumn === column) {
+        opportunitySortDirection = opportunitySortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        opportunitySortColumn = column;
+        opportunitySortDirection = 'asc';
+    }
+
+    opportunities.sort((a, b) => {
+        let aVal, bVal;
+
+        switch (column) {
+            case 'id':
+                aVal = a.id;
+                bVal = b.id;
+                break;
+            case 'name':
+                aVal = a.name.toLowerCase();
+                bVal = b.name.toLowerCase();
+                break;
+            case 'client':
+                aVal = a.client.toLowerCase();
+                bVal = b.client.toLowerCase();
+                break;
+            case 'industry':
+                aVal = a.industry;
+                bVal = b.industry;
+                break;
+            case 'stage':
+                aVal = a.stage;
+                bVal = b.stage;
+                break;
+            case 'status':
+                aVal = a.status;
+                bVal = b.status;
+                break;
+            case 'dealValue':
+                aVal = a.dealValue;
+                bVal = b.dealValue;
+                break;
+            case 'probability':
+                aVal = a.probability;
+                bVal = b.probability;
+                break;
+            case 'expectedRevenue':
+                aVal = a.expectedRevenue;
+                bVal = b.expectedRevenue;
+                break;
+            case 'bantPercent':
+                aVal = a.bantPercent;
+                bVal = b.bantPercent;
+                break;
+            case 'bantSummary':
+                aVal = a.bantSummary;
+                bVal = b.bantSummary;
+                break;
+            default:
+                return 0;
+        }
+
+        if (aVal < bVal) return opportunitySortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return opportunitySortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    renderOpportunities();
+    updateSortIndicators('opportunities', column, opportunitySortDirection);
+}
+
+function sortTasks(column) {
+    // Toggle direction if clicking same column
+    if (taskSortColumn === column) {
+        taskSortDirection = taskSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        taskSortColumn = column;
+        taskSortDirection = 'asc';
+    }
+
+    tasks.sort((a, b) => {
+        let aVal, bVal;
+
+        switch (column) {
+            case 'id':
+                aVal = a.id;
+                bVal = b.id;
+                break;
+            case 'taskName':
+                aVal = a.taskName.toLowerCase();
+                bVal = b.taskName.toLowerCase();
+                break;
+            case 'assignedTo':
+                aVal = (a.assignedTo || '').toLowerCase();
+                bVal = (b.assignedTo || '').toLowerCase();
+                break;
+            case 'role':
+                aVal = a.role;
+                bVal = b.role;
+                break;
+            case 'taskType':
+                aVal = a.taskType;
+                bVal = b.taskType;
+                break;
+            case 'startDate':
+                aVal = a.startDate || '';
+                bVal = b.startDate || '';
+                break;
+            case 'dueDate':
+                aVal = a.dueDate || '';
+                bVal = b.dueDate || '';
+                break;
+            case 'status':
+                aVal = a.status;
+                bVal = b.status;
+                break;
+            default:
+                return 0;
+        }
+
+        if (aVal < bVal) return taskSortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return taskSortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    renderTasks();
+    updateSortIndicators('tasks', column, taskSortDirection);
+}
+
+function updateSortIndicators(table, column, direction) {
+    const tableId = table === 'opportunities' ? 'opportunities-table' : 'tasks-table';
+    const headers = document.querySelectorAll(`#${tableId} th`);
+
+    headers.forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        const sortIcon = th.querySelector('.sort-icon');
+        if (sortIcon) {
+            sortIcon.remove();
+        }
+    });
+
+    const columnMap = {
+        opportunities: {
+            'id': 0, 'name': 1, 'client': 2, 'industry': 3, 'stage': 4,
+            'status': 5, 'dealValue': 6, 'probability': 7, 'expectedRevenue': 8,
+            'bantPercent': 9, 'bantSummary': 10
+        },
+        tasks: {
+            'id': 0, 'taskName': 2, 'assignedTo': 3, 'role': 4,
+            'taskType': 5, 'startDate': 6, 'dueDate': 7, 'status': 8
+        }
+    };
+
+    const colIndex = columnMap[table][column];
+    if (colIndex !== undefined) {
+        const header = headers[colIndex];
+        header.classList.add(`sorted-${direction}`);
+
+        const icon = document.createElement('span');
+        icon.className = 'sort-icon';
+        icon.textContent = direction === 'asc' ? ' ▲' : ' ▼';
+        header.appendChild(icon);
+    }
+}
+
+// ===========================
+// Bulk Operations Functions
+// ===========================
+
+function toggleOpportunitySelection(id) {
+    if (selectedOpportunities.has(id)) {
+        selectedOpportunities.delete(id);
+    } else {
+        selectedOpportunities.add(id);
+    }
+    updateBulkActionsUI('opportunities');
+}
+
+function toggleTaskSelection(id) {
+    if (selectedTasks.has(id)) {
+        selectedTasks.delete(id);
+    } else {
+        selectedTasks.add(id);
+    }
+    updateBulkActionsUI('tasks');
+}
+
+function toggleSelectAllOpportunities() {
+    const tbody = document.getElementById('opportunities-tbody');
+    const checkboxes = tbody.querySelectorAll('input[type="checkbox"]');
+
+    if (selectedOpportunities.size === checkboxes.length) {
+        // Deselect all
+        selectedOpportunities.clear();
+    } else {
+        // Select all
+        checkboxes.forEach(cb => {
+            selectedOpportunities.add(cb.dataset.id);
+        });
+    }
+
+    updateBulkActionsUI('opportunities');
+    renderOpportunities();
+}
+
+function toggleSelectAllTasks() {
+    const tbody = document.getElementById('tasks-tbody');
+    const checkboxes = tbody.querySelectorAll('input[type="checkbox"]');
+
+    if (selectedTasks.size === checkboxes.length) {
+        // Deselect all
+        selectedTasks.clear();
+    } else {
+        // Select all
+        checkboxes.forEach(cb => {
+            selectedTasks.add(cb.dataset.id);
+        });
+    }
+
+    updateBulkActionsUI('tasks');
+    renderTasks();
+}
+
+function updateBulkActionsUI(type) {
+    const selectedCount = type === 'opportunities' ? selectedOpportunities.size : selectedTasks.size;
+    const bulkActionsId = type === 'opportunities' ? 'opp-bulk-actions' : 'task-bulk-actions';
+    const bulkActions = document.getElementById(bulkActionsId);
+
+    if (selectedCount > 0) {
+        bulkActions.style.display = 'flex';
+        bulkActions.querySelector('.selected-count').textContent = `${selectedCount} selected`;
+    } else {
+        bulkActions.style.display = 'none';
+    }
+}
+
+function bulkDeleteOpportunities() {
+    if (selectedOpportunities.size === 0) return;
+
+    if (!confirm(`Delete ${selectedOpportunities.size} opportunities and their associated tasks?`)) {
+        return;
+    }
+
+    const deletedOpportunities = [];
+    const deletedTasks = [];
+
+    selectedOpportunities.forEach(id => {
+        const opp = opportunities.find(o => o.id === id);
+        if (opp) {
+            deletedOpportunities.push(opp);
+            const oppTasks = tasks.filter(t => t.opportunityId === id);
+            deletedTasks.push(...oppTasks);
+        }
+    });
+
+    // Add to undo stack
+    addToUndoStack({
+        type: 'bulk_delete_opportunities',
+        data: {
+            opportunities: deletedOpportunities,
+            tasks: deletedTasks
+        }
+    });
+
+    // Delete opportunities
+    opportunities = opportunities.filter(opp => !selectedOpportunities.has(opp.id));
+    tasks = tasks.filter(task => !deletedOpportunities.find(opp => opp.id === task.opportunityId));
+
+    selectedOpportunities.clear();
+
+    saveOpportunitiesToStorage();
+    saveTasksToStorage();
+    renderOpportunities();
+    renderTasks();
+    updateTaskOpportunityFilters();
+    updateDashboard();
+    updateBulkActionsUI('opportunities');
+
+    showUndoToast(`${deletedOpportunities.length} opportunities deleted`);
+}
+
+function bulkDeleteTasks() {
+    if (selectedTasks.size === 0) return;
+
+    if (!confirm(`Delete ${selectedTasks.size} tasks?`)) {
+        return;
+    }
+
+    const deletedTasks = [];
+
+    selectedTasks.forEach(id => {
+        const task = tasks.find(t => t.id === id);
+        if (task) {
+            deletedTasks.push(task);
+        }
+    });
+
+    // Add to undo stack
+    addToUndoStack({
+        type: 'bulk_delete_tasks',
+        data: { tasks: deletedTasks }
+    });
+
+    // Delete tasks
+    tasks = tasks.filter(task => !selectedTasks.has(task.id));
+
+    selectedTasks.clear();
+
+    saveTasksToStorage();
+    renderTasks();
+    updateDashboard();
+    updateBulkActionsUI('tasks');
+
+    showUndoToast(`${deletedTasks.length} tasks deleted`);
+}
+
+function bulkUpdateOpportunityStatus(newStatus) {
+    if (selectedOpportunities.size === 0) return;
+
+    selectedOpportunities.forEach(id => {
+        const opp = opportunities.find(o => o.id === id);
+        if (opp) {
+            opp.status = newStatus;
+        }
+    });
+
+    selectedOpportunities.clear();
+
+    saveOpportunitiesToStorage();
+    renderOpportunities();
+    updateDashboard();
+    updateBulkActionsUI('opportunities');
+
+    showSuccess(`Updated ${selectedOpportunities.size} opportunities to ${newStatus}`);
+}
+
+function bulkUpdateTaskStatus(newStatus) {
+    if (selectedTasks.size === 0) return;
+
+    const count = selectedTasks.size;
+
+    selectedTasks.forEach(id => {
+        const task = tasks.find(t => t.id === id);
+        if (task) {
+            task.status = newStatus;
+        }
+    });
+
+    selectedTasks.clear();
+
+    saveTasksToStorage();
+    renderTasks();
+    updateDashboard();
+    updateBulkActionsUI('tasks');
+
+    showSuccess(`Updated ${count} tasks to ${newStatus}`);
 }
 
 // ===========================
@@ -187,12 +948,40 @@ function initializeEventListeners() {
     window.addEventListener('click', function(event) {
         const oppModal = document.getElementById('opportunity-modal');
         const taskModal = document.getElementById('task-modal');
-        
+
         if (event.target === oppModal) {
             closeOpportunityModal();
         }
         if (event.target === taskModal) {
             closeTaskModal();
+        }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(event) {
+        // Escape key closes modals
+        if (event.key === 'Escape') {
+            const oppModal = document.getElementById('opportunity-modal');
+            const taskModal = document.getElementById('task-modal');
+
+            if (oppModal.classList.contains('active')) {
+                closeOpportunityModal();
+            }
+            if (taskModal.classList.contains('active')) {
+                closeTaskModal();
+            }
+        }
+
+        // Ctrl/Cmd + E for export
+        if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+            event.preventDefault();
+            exportToJSON();
+        }
+
+        // Ctrl/Cmd + I for import
+        if ((event.ctrlKey || event.metaKey) && event.key === 'i') {
+            event.preventDefault();
+            importFromJSON();
         }
     });
 }
@@ -237,6 +1026,11 @@ function openAddOpportunityModal() {
     updateOpportunityCalculations();
     updateBANTCalculations();
     document.getElementById('opportunity-modal').classList.add('active');
+
+    // Focus first input
+    setTimeout(() => {
+        document.getElementById('opp-name').focus();
+    }, 100);
 }
 
 function openEditOpportunityModal(id) {
@@ -271,8 +1065,13 @@ function openEditOpportunityModal(id) {
     
     updateOpportunityCalculations();
     updateBANTCalculations();
-    
+
     document.getElementById('opportunity-modal').classList.add('active');
+
+    // Focus first input
+    setTimeout(() => {
+        document.getElementById('opp-name').focus();
+    }, 100);
 }
 
 function closeOpportunityModal() {
@@ -367,19 +1166,35 @@ function deleteOpportunity(id) {
     if (!confirm('Are you sure you want to delete this opportunity? All associated tasks will also be deleted.')) {
         return;
     }
-    
+
+    // Find opportunity and associated tasks
+    const opportunity = opportunities.find(opp => opp.id === id);
+    const associatedTasks = tasks.filter(task => task.opportunityId === id);
+
+    // Add to undo stack
+    addToUndoStack({
+        type: 'delete_opportunity',
+        data: {
+            opportunity: opportunity,
+            tasks: associatedTasks
+        }
+    });
+
     // Delete opportunity
     opportunities = opportunities.filter(opp => opp.id !== id);
     saveOpportunitiesToStorage();
-    
+
     // Delete associated tasks
     tasks = tasks.filter(task => task.opportunityId !== id);
     saveTasksToStorage();
-    
+
     renderOpportunities();
     renderTasks();
     updateTaskOpportunityFilters();
     updateDashboard();
+
+    // Show undo toast
+    showUndoToast('Opportunity deleted');
 }
 
 // ===========================
@@ -392,6 +1207,11 @@ function openAddTaskModal() {
     document.getElementById('task-form').reset();
     populateTaskOpportunityDropdown();
     document.getElementById('task-modal').classList.add('active');
+
+    // Focus first input
+    setTimeout(() => {
+        document.getElementById('task-opportunity').focus();
+    }, 100);
 }
 
 function openEditTaskModal(id) {
@@ -413,8 +1233,13 @@ function openEditTaskModal(id) {
     document.getElementById('task-due-date').value = task.dueDate || '';
     document.getElementById('task-status').value = task.status || 'Not Started';
     document.getElementById('task-remarks').value = task.remarks || '';
-    
+
     document.getElementById('task-modal').classList.add('active');
+
+    // Focus first input
+    setTimeout(() => {
+        document.getElementById('task-opportunity').focus();
+    }, 100);
 }
 
 function closeTaskModal() {
@@ -471,11 +1296,23 @@ function deleteTask(id) {
     if (!confirm('Are you sure you want to delete this task?')) {
         return;
     }
-    
-    tasks = tasks.filter(task => task.id !== id);
+
+    // Find task
+    const task = tasks.find(t => t.id === id);
+
+    // Add to undo stack
+    addToUndoStack({
+        type: 'delete_task',
+        data: { task: task }
+    });
+
+    tasks = tasks.filter(t => t.id !== id);
     saveTasksToStorage();
     renderTasks();
     updateDashboard();
+
+    // Show undo toast
+    showUndoToast('Task deleted');
 }
 
 // ===========================
@@ -502,14 +1339,16 @@ function renderOpportunities() {
     });
     
     if (filteredOpportunities.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" class="empty-state"><p>No opportunities found. Click "Add Opportunity" to create one.</p></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" class="empty-state"><p>No opportunities found. Click "Add Opportunity" to create one.</p></td></tr>';
         return;
     }
     
     tbody.innerHTML = '';
     filteredOpportunities.forEach(opp => {
         const row = document.createElement('tr');
+        const isChecked = selectedOpportunities.has(opp.id) ? 'checked' : '';
         row.innerHTML = `
+            <td><input type="checkbox" ${isChecked} data-id="${escapeHtml(opp.id)}" class="row-checkbox" onchange="toggleOpportunitySelection('${escapeHtml(opp.id)}')"></td>
             <td><strong>${escapeHtml(opp.id)}</strong></td>
             <td>${escapeHtml(opp.name)}</td>
             <td>${escapeHtml(opp.client)}</td>
@@ -561,17 +1400,19 @@ function renderTasks() {
     });
     
     if (filteredTasks.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><p>No tasks found. Click "Add Task" to create one.</p></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="empty-state"><p>No tasks found. Click "Add Task" to create one.</p></td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = '';
     filteredTasks.forEach(task => {
         const opportunity = opportunities.find(opp => opp.id === task.opportunityId);
         const opportunityName = opportunity ? opportunity.name : 'N/A';
-        
+        const isChecked = selectedTasks.has(task.id) ? 'checked' : '';
+
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td><input type="checkbox" ${isChecked} data-id="${escapeHtml(task.id)}" class="row-checkbox" onchange="toggleTaskSelection('${escapeHtml(task.id)}')"></td>
             <td><strong>${escapeHtml(task.id)}</strong></td>
             <td>${escapeHtml(opportunityName)}</td>
             <td>${escapeHtml(task.taskName)}</td>
